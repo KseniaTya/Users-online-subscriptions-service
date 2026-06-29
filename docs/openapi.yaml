@@ -1,0 +1,216 @@
+openapi: 3.0.3
+info:
+  title: Subscription Aggregation Service
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+  /subscriptions:
+    post:
+      summary: Create subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionRequest"
+            example:
+              service_name: Yandex Plus
+              price: 400
+              user_id: 60601fee-2bf1-4721-ae6f-7636e79a0cba
+              start_date: 07-2025
+      responses:
+        "201":
+          description: Created subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    get:
+      summary: List subscriptions
+      parameters:
+        - $ref: "#/components/parameters/UserID"
+        - $ref: "#/components/parameters/ServiceName"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 200
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: Subscription list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subscription"
+  /subscriptions/total:
+    get:
+      summary: Calculate subscription total for period
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: ^(0[1-9]|1[0-2])-[0-9]{4}$
+          example: 07-2025
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: ^(0[1-9]|1[0-2])-[0-9]{4}$
+          example: 12-2025
+        - $ref: "#/components/parameters/UserID"
+        - $ref: "#/components/parameters/ServiceName"
+      responses:
+        "200":
+          description: Total monthly cost across matching active subscription months
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total]
+                properties:
+                  total:
+                    type: integer
+                    format: int64
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /subscriptions/{id}:
+    get:
+      summary: Get subscription by id
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionID"
+      responses:
+        "200":
+          description: Subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      summary: Update subscription
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionRequest"
+      responses:
+        "200":
+          description: Updated subscription
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete subscription
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionID"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  parameters:
+    SubscriptionID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserID:
+      name: user_id
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+    ServiceName:
+      name: service_name
+      in: query
+      required: false
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Subscription not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    SubscriptionRequest:
+      type: object
+      required: [service_name, price, user_id, start_date]
+      properties:
+        service_name:
+          type: string
+        price:
+          type: integer
+          minimum: 0
+        user_id:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          pattern: ^(0[1-9]|1[0-2])-[0-9]{4}$
+        end_date:
+          type: string
+          pattern: ^(0[1-9]|1[0-2])-[0-9]{4}$
+    Subscription:
+      allOf:
+        - $ref: "#/components/schemas/SubscriptionRequest"
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
